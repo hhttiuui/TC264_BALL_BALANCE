@@ -24,7 +24,7 @@ uint8 count_20ms;
 
 // ============================ 主周期任务调用接口 ============================
 
-volatile uint8 funtion_kemu = 1,funtion_ready_flag;
+volatile uint8 funtion_kemu = 3,funtion_ready_flag;
 
 //=======按键切换初始化，funtion_kemu 发生变化，就允许对应模式的“初始化动作”再执行一次。=======//
 void ttop_funtion_mode_once_apply(void)
@@ -39,9 +39,9 @@ void ttop_funtion_mode_once_apply(void)
 	s_last_kemu = funtion_kemu;
 
 
-	if (funtion_kemu == 1u)// MODE1：直线速度200
+	if (funtion_kemu == 1u)// MODE1：小球+速度+舵机角度
 	{
-		PID_INIT_BY_MODE(PID_MODE_CASCADE);
+		PID_INIT_BY_MODE(PID_MODE_ANGLE);
 	}
 	else if (funtion_kemu == 2u)// MODE2：变速
 	{		
@@ -145,9 +145,11 @@ void ttop_funtion_new(void)
 		ttop_speed_change_task_5ms();
 
 	}
-	// MODE3 (KM2)：遥控器控制 + 录制 + 回放
+	// MODE3 (KM2)：自动扫目标 + 遥控器控制
 	else if(funtion_kemu == 3)
 	{
+		liangan_auto_sweep_task_5ms();
+
 		uint8 replay_was = ttop_rc_yaw_replay_is_active();
 
 		ttop_rc_control_yaw_only_task_5ms();
@@ -304,7 +306,7 @@ void ttop_funtion_init(void)
 	// 舵机 PID 初始化：按当前模式（funtion_kemu）初始化一次
 	// funtion_kemu 与菜单模式对齐：1..12；PID_INIT_BY_MODE 使用 pid_mode_t
     // 这里沿用上电默认 MODE1（cascade）；如果你上电希望跟随菜单选择，可以在 load 后先同步 funtion_kemu。
-    PID_INIT_BY_MODE(PID_MODE_CASCADE);
+    PID_INIT_BY_MODE(PID_MODE_ANGLE);   /* MODE1：小球位置+速度+舵机角 */
              
     encoder_tim5_demo_init();   // 编码器初始化
     imu660rx_init();            // 陀螺仪

@@ -2,6 +2,7 @@
 #include "quaternion_ahrs.h"
 #include "Ttop_funtion.h"
 #include "flash_storage.h"
+#include "liangan.h"
 
 #pragma section all "cpu0_dsram"
 
@@ -15,7 +16,9 @@ int core0_main(void)
     clock_init();                   // 鑾峰彇骞惰缃郴缁熸椂閽�
     debug_init();                   // 璋冭瘯妯″潡鍒濆鍖栵紙涓插彛/鏃ュ織绛夛級
     system_start();
-    gnss_init(TAU1201);
+    /* [liangan] 用摄像头 UART 初始化替代原 GPS 初始化 */
+    //gnss_init(TAU1201);
+    liangan_init();
     system_delay_ms(500);
 
     ttop_funtion_init();
@@ -35,7 +38,8 @@ int core0_main(void)
         //test
         Menu_Select();
         User_Interface();
-        gnss_data_parse();
+        /* [liangan] 原 GPS 解析已注释 */
+        //gnss_data_parse();
         //ips200_show_string(0, 0 * 15, "KOU_KOU_FLY_CAR");
         //led_bzw_show_task_20ms_auto();// LED 鐘舵€佹樉绀� + 鏇存柊鏍囧織浣�
 

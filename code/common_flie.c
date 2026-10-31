@@ -12,6 +12,9 @@
 #include "zf_common_headfile.h"
 #include "imu_filter.h"
 #include "quaternion_ahrs.h"
+#include "liangan.h"
+
+extern volatile uint8_t g_liangan_sweep_mode;  /* liangan_mode_t */
 
 int count_pid = 0;
 volatile uint8 pid_flag = 0;
@@ -34,7 +37,7 @@ volatile float g_pitch_angle_lpf_alpha = 0.0f;
 
 // 多速率调度：yaw 环开关（1=启用，0=关闭）
 #ifndef PID_MR_ENABLE_YAW
-#define PID_MR_ENABLE_YAW   (1u)
+#define PID_MR_ENABLE_YAW   (0u)
 #endif
 
 // IMU/AHRS 调用周期（秒）：当前用2ms触发 
@@ -79,9 +82,11 @@ volatile float pid_target = 0.0f;
 // 注意：赛事功能模块（Ttop_funtion）需要直接修改该值来实现“转弯规划”
 volatile float g_yaw_pid_out_deg = 0.0f;
 volatile float g_yaw_target_deg = 0.0f;
+volatile float g_lg_angle_out = 0.0f;          /* LG_DBG: 角度环输出 */
+volatile float g_lg_pos_err   = 0.0f;          /* LG_DBG: 小球位置误差 */
 
 // 当前活动 PID 模式：由 PID_INIT_BY_MODE 设置，多速率调度函数按该模式执行。
-static pid_mode_t g_pid_active_mode = PID_MODE_CASCADE;
+static pid_mode_t g_pid_active_mode = PID_MODE_ANGLE;   /* MODE1: 小球位置+速度+舵机角 */
 
 // Mahony 四元数姿态解算状态
 static ahrs_mahony_t g_ahrs;
@@ -125,7 +130,7 @@ static void servo_output_cb(float out)
 	// 中心值（舵机空位）：
     const int CENTER = 500;
 	float adj = out + g_servo_zero_offset_deg;
-	int i = (int)roundf((float)CENTER + adj);
+	int i = (int)roundf((float)CENTER - adj);
     pwm_set_duty(PWM_CH1, SERVO_PWM(i));
 }
 
@@ -542,7 +547,12 @@ void pid_dynamic_cascade_set_kp(float angle_kp, float rate_kp, float yaw_kp)
 {
 	pid_set_gains(&g_pid_angle, angle_kp, g_pid_angle.ki, g_pid_angle.kd);
 	pid_set_gains(&g_pid_rate, rate_kp, g_pid_rate.ki, g_pid_rate.kd);
-	pid_set_gains(&g_pid_yaw, yaw_kp, g_pid_yaw.ki, g_pid_yaw.kd);
+	pid_set_gains(&g_pid_yaw, yaw_kp / 100.0f, g_pid_yaw.ki, g_pid_yaw.kd);
+}
+
+void pid_yaw_set_kd(float kd)
+{
+	g_pid_yaw.kd = kd;
 }
 
 static void pid_apply_gains(pid_t *pid, const pid_gains_cfg_t *cfg)
@@ -598,8 +608,13 @@ void PID_INIT_BY_MODE(pid_mode_t mode)
 	// 姿态解算初始化
 	ahrs_mahony_init(&g_ahrs, cfg->ahrs_kp, cfg->ahrs_ki);
 
-	// yaw PID：所有模式都会用
-	pid_apply_gains(&g_pid_yaw, &cfg->yaw);
+	// yaw PID：所有模式都会用（kp/ki ÷100 适配摄像头 0~800 数据域）
+	{
+		pid_gains_cfg_t yaw_scaled = cfg->yaw;
+		yaw_scaled.kp /= 100.0f;
+		yaw_scaled.ki /= 100.0f;
+		pid_apply_gains(&g_pid_yaw, &yaw_scaled);
+	}
 
 	// 角度 PID：根据模式决定用哪个实例
 	if (cfg->strategy == PID_STRAT_CASCADE || cfg->strategy == PID_STRAT_ANGLE_ONLY)
@@ -636,7 +651,12 @@ void PID_HOT_SWITCH_BY_MODE(pid_mode_t mode)
 	ahrs_mahony_set_gains(&g_ahrs, cfg->ahrs_kp, cfg->ahrs_ki, 0u);
 
 	// yaw PID：所有模式都会用
-	pid_apply_gains_hot(&g_pid_yaw, &cfg->yaw);
+	{
+		pid_gains_cfg_t yaw_scaled = cfg->yaw;
+		yaw_scaled.kp /= 100.0f;
+		yaw_scaled.ki /= 100.0f;
+		pid_apply_gains_hot(&g_pid_yaw, &yaw_scaled);
+	}
 
 	// 角度 PID：根据策略更新当前使用的实例
 	if (cfg->strategy == PID_STRAT_CASCADE || cfg->strategy == PID_STRAT_ANGLE_ONLY)
@@ -739,20 +759,21 @@ void pid_timer_handler_multirate_2ms(void)
 	if ((s_sched_cnt & 0x01u) == 0u) run_angle = 1u;
 	if ((s_sched_cnt & 0x03u) == 0u) run_yaw = 1u;
 
-	if (fabsf(pitch_deg) <= (float)YAW_GATE_ABS_PITCH_MAX_DEG)
+	/* [liangan] Yaw 环：仅闭环模式下使用摄像头位置反馈 */
+	if (g_liangan_sweep_mode == 0u)   /* LIANGAN_MODE_CLOSED */
 	{
 		if (run_yaw)
 		{
-			s_yaw_target_hold = pid_compute_yaw_target_with_gate_dt(cfg, pitch_deg, yaw_rel_deg, PID_MR_YAW_DT_S);
+			s_yaw_target_hold = pid_compute(&g_pid_yaw,
+				(float)g_liangan_target,        // 目标：小球位置（菜单可调）
+				g_liangan_ball_filt,            // 反馈：滤波后位置
+				PID_MR_YAW_DT_S);
 		}
-	}
-	else
-	{
-		s_yaw_target_hold = 0.0f;
-	}
 
-	g_yaw_pid_out_deg = s_yaw_target_hold;
-	pid_target = s_yaw_target_hold;
+		g_yaw_pid_out_deg = s_yaw_target_hold;
+		pid_target = s_yaw_target_hold;
+	}
+	/* 其他模式（开环/RC直驱/录制/回放）由 liangan 模块写入 pid_target */
 
 	if (cfg->strategy == PID_STRAT_CASCADE)
 	{
@@ -768,12 +789,18 @@ void pid_timer_handler_multirate_2ms(void)
 	}
 	else if (cfg->strategy == PID_STRAT_ANGLE_ONLY)
 	{
+		/* MODE1: 小球位置(滤波)→俯仰目标 + 小球速度→前馈 + 舵机角度闭环 */
 		if (run_angle)
 		{
-			s_angle_out_hold = pid_compute(&g_pid_angle, 0.0f, pitch_deg, PID_MR_ANGLE_DT_S);
+			float ball_err = (float)g_liangan_target - g_liangan_ball_filt;
+			float angle_sp = ball_err * 0.02f;                  /* 位置→角度目标 */
+			g_lg_pos_err = ball_err;
+			s_angle_out_hold = pid_compute(&g_pid_angle, angle_sp, pitch_deg, PID_MR_ANGLE_DT_S);
+			g_lg_angle_out = s_angle_out_hold;
 		}
 
-		float out = s_angle_out_hold + (1.5f) * pitch_rate_dps_f;
+		float out = s_angle_out_hold
+		          - g_liangan_speed_calc * 0.01f;               /* 速度阻尼（反方向） */
 		out = apply_deadzone(out, SERVO_OUT_DEADZONE);
 		ips_show_pid_out = out;
 		servo_output_cb(out);

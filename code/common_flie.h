@@ -138,9 +138,11 @@ void pid_timer_handler_multirate_2ms(void);
 void servo_zero(void);
 
 
+// 热更新 yaw 外环 kd（小球位置环 D 项），无需重新初始化
+void pid_yaw_set_kd(float kd);
+
 extern volatile float g_yaw_pid_out_deg;
-extern volatile float g_yaw_target_deg;
-extern volatile float g_yaw_zero_offset_deg;  // yaw 零点偏置（度），菜单可调
+extern volatile float g_yaw_target_deg;extern volatile float pid_target;             /* 角度环目标值（deg），开环扫目标直接写入 */extern volatile float g_yaw_zero_offset_deg;  // yaw 零点偏置（度），菜单可调
 extern volatile float g_pitch_zero_offset_deg;
 extern volatile float g_servo_zero_offset_deg; // pitch 零点偏置（度），菜单可调
 extern volatile float g_pitch_angle_lpf_alpha; // pitch 角度低通系数（0=关闭滤波）

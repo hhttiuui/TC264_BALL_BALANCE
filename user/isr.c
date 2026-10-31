@@ -35,8 +35,9 @@
 
 #include "isr_config.h"
 #include "isr.h"
-#include "gps_nav.h"
-#include "gps_storage.h"
+//#include "gps_nav.h"
+//#include "gps_storage.h"
+#include "liangan.h"
 
 extern int count_pid;
 extern volatile uint8 pid_flag;
@@ -95,11 +96,12 @@ IFX_INTERRUPT(cc61_pit_ch0_isr, 0, CCU6_1_CH0_ISR_PRIORITY)
 
     if(enable_count++>2000)enable_flag = 1;
 
-    if(gnss_flag)
-    {
-        gnss_flag = 0;
-        gnss_data_parse();           //开始解析数据
-    }    
+    /* [liangan] 原 GPS 数据解析已注释 */
+    //if(gnss_flag)
+    //{
+    //    gnss_flag = 0;
+    //    gnss_data_parse();           //开始解析数据
+    //}    
 
 
     //2ms陀螺仪+2ms角速度环+4ms角度环+8msyaw环
@@ -123,17 +125,18 @@ IFX_INTERRUPT(cc61_pit_ch0_isr, 0, CCU6_1_CH0_ISR_PRIORITY)
         period_10ms_count++;
         if(period_10ms_count>=5)period_10ms_count = 0;
 
-        if(++s_gps_nav_div20 >= 20u)
-        {
-            s_gps_nav_div20 = 0u;
-            gps_nav_task_100ms();
-        }
-
-        if(++s_gps_storage_div100 >= 100u)
-        {
-            s_gps_storage_div100 = 0u;
-            //gps_storage_task_100ms();
-        }
+        /* [liangan] 原 GPS 导航/存储任务已注释 */
+        //if(++s_gps_nav_div20 >= 20u)
+        //{
+        //    s_gps_nav_div20 = 0u;
+        //    gps_nav_task_100ms();
+        //}
+        //
+        //if(++s_gps_storage_div100 >= 100u)
+        //{
+        //    s_gps_storage_div100 = 0u;
+        //    //gps_storage_task_100ms();
+        //}
 
     }
 
@@ -368,7 +371,9 @@ IFX_INTERRUPT(uart3_rx_isr, 0, UART3_RX_INT_PRIO)
 {
     interrupt_global_enable(0);                     // 开启中断嵌套
 
-    gnss_uart_callback();                           // GNSS串口回调函数
+    /* [liangan] 原 GPS 回调已替换为摄像头 UART 接收 */
+    //gnss_uart_callback();                           // GNSS串口回调函数
+    liangan_uart_callback();
 
 
 

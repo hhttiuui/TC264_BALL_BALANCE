@@ -1,28 +1,33 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<launchConfiguration type="com.rt.hightec.agent.launcher.launchConfigurationType">
-    <stringAttribute key="ACC_HW" value="DAS JDS TriBoard TC3XX V2.0 TBAXCA0L"/>
-    <booleanAttribute key="ENABLE_AGENTLOG" value="false"/>
-    <booleanAttribute key="ENABLE_FLASHING" value="true"/>
-    <booleanAttribute key="ENABLE_STOPPING" value="true"/>
-    <stringAttribute key="EXECUTABLE_PATH" value="${workspace_loc}/Seekfree_TC264_Opensource_Library/Debug/Seekfree_TC264_Opensource_Library.elf"/>
-    <stringAttribute key="STOP_FUNCTION" value="core0_main"/>
-    <stringAttribute key="SVD" value="E:/AURIX-Studio-1.10.24/build_system/bundled-artefacts-repo/svd/tc26xbpd/1.0-1/device.svd"/>
+<launchConfiguration type="si.isystem.eclipse.debug.launch.debugLaunchType">
+    <stringAttribute key="com.infineon.auriy.buildsystem.debug.launch.BUILD_CONFIGURATION_NAME" value="Debug"/>
+    <stringAttribute key="communicationType" value="USB"/>
+    <booleanAttribute key="createSMPConfig" value="true"/>
+    <stringAttribute key="deviceName" value="TC264D"/>
+    <stringAttribute key="hardwareType" value="IFX_DAS"/>
+    <stringAttribute key="imageCheck" value="Default"/>
+    <booleanAttribute key="isAnalyzeSourceFiles" value="false"/>
+    <booleanAttribute key="isBringWinIdeaToTop" value="true"/>
+    <booleanAttribute key="isLaunchInvisibleWinIdeaInstance" value="true"/>
+    <booleanAttribute key="isSaveWinIdeaWorkspace" value="true"/>
+    <booleanAttribute key="isShutDownWinIdeaAfterTerminate" value="true"/>
+    <booleanAttribute key="isVerboseMode" value="false"/>
+    <booleanAttribute key="isVerifyAfterDownload" value="true"/>
+    <intAttribute key="org.eclipse.cdt.launch.ATTR_BUILD_BEFORE_LAUNCH_ATTR" value="2"/>
+    <stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_ID" value="IConnectDebugger.winIdea"/>
+    <booleanAttribute key="org.eclipse.cdt.launch.DEBUGGER_STOP_AT_MAIN" value="true"/>
+    <stringAttribute key="org.eclipse.cdt.launch.DEBUGGER_STOP_AT_MAIN_SYMBOL" value="core0_main"/>
+    <stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value="Debug\Seekfree_TC264_Opensource_Library.elf"/>
     <stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value="Seekfree_TC264_Opensource_Library"/>
+    <booleanAttribute key="org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_AUTO_ATTR" value="false"/>
+    <stringAttribute key="org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR" value=""/>
+    <booleanAttribute key="org.eclipse.debug.core.ATTR_FORCE_SYSTEM_CONSOLE_ENCODING" value="false"/>
     <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
         <listEntry value="/Seekfree_TC264_Opensource_Library"/>
     </listAttribute>
     <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
         <listEntry value="4"/>
     </listAttribute>
-    <stringAttribute key="org.eclipse.debug.ui.ATTR_LOCATION" value="/Seekfree_TC264_Opensource_Library/Seekfree_TC264_Opensource_Library Debug.launch"/>
-    <stringAttribute key="org.eclipse.debug.ui.ATTR_PROJECT_NAME" value="Seekfree_TC264_Opensource_Library"/>
-    <booleanAttribute key="org.eclipse.debug.ui.ATTR_SHARED" value="true"/>
-    <stringAttribute key="org.eclipse.tcf.debug.MemoryMap" value="[{&quot;FileName&quot;:&quot;C:/Users/26447/AURIX-v1.10.24-workspace/Seekfree_TC264_Opensource_Library/Debug/Seekfree_TC264_Opensource_Library.elf&quot;,&quot;ID&quot;:&quot;/DAS JDS TriBoard TC3XX V2.0 TBAXCA0L/Core 0: CPU0 TriCore 1.6E&quot;,&quot;Flags&quot;:0,&quot;UUID&quot;:&quot;f2678bda-ec01-4e38-8d31-c541e8f958dc&quot;},{&quot;FileName&quot;:&quot;C:/Users/26447/AURIX-v1.10.24-workspace/Seekfree_TC264_Opensource_Library/Debug/Seekfree_TC264_Opensource_Library.elf&quot;,&quot;ID&quot;:&quot;/DAS JDS TriBoard TC3XX V2.0 TBAXCA0L/Core 0: CPU0 TriCore 1.6E&quot;,&quot;Flags&quot;:0,&quot;UUID&quot;:&quot;765e168b-6f2c-45e7-aa94-800388f02b31&quot;},{&quot;FileName&quot;:&quot;C:/Users/26447/AURIX-v1.10.24-workspace/Seekfree_TC264_Opensource_Library/Debug/Seekfree_TC264_Opensource_Library.elf&quot;,&quot;ID&quot;:&quot;/DAS JDS TriBoard TC3XX V2.0 TBAXCA0L/Core 0: CPU0 TriCore 1.6E&quot;,&quot;Flags&quot;:0,&quot;UUID&quot;:&quot;07dcf453-b22e-4bc1-b983-00e490c06a0b&quot;},{&quot;FileName&quot;:&quot;C:/Users/26447/AURIX-v1.10.24-workspace/Seekfree_TC264_Opensource_Library/Debug/Seekfree_TC264_Opensource_Library.elf&quot;,&quot;ID&quot;:&quot;/DAS JDS TriBoard TC3XX V2.0 TBAXCA0L/Core 1: CPU1 TriCore 1.6P&quot;,&quot;Flags&quot;:0,&quot;UUID&quot;:&quot;4ab39083-7aa2-4c35-844f-b0620b2817c3&quot;},{&quot;FileName&quot;:&quot;C:/Users/26447/AURIX-v1.10.24-workspace/Seekfree_TC264_Opensource_Library/Debug/Seekfree_TC264_Opensource_Library.elf&quot;,&quot;ID&quot;:&quot;/DAS JDS TriBoard TC3XX V2.0 TBAXCA0L/Core 0: CPU0 TriCore 1.6E&quot;,&quot;Flags&quot;:0,&quot;UUID&quot;:&quot;293958ab-7b35-45a4-ad2f-8236b784f4fc&quot;},{&quot;FileName&quot;:&quot;C:/Users/26447/AURIX-v1.10.24-workspace/Seekfree_TC264_Opensource_Library/Debug/Seekfree_TC264_Opensource_Library.elf&quot;,&quot;ID&quot;:&quot;/DAS JDS TriBoard TC3XX V2.0 TBAXCA0L/Core 1: CPU1 TriCore 1.6P&quot;,&quot;Flags&quot;:0,&quot;UUID&quot;:&quot;db27fe7d-d97c-4269-910d-324031e33e52&quot;}]"/>
-    <stringAttribute key="org.eclipse.tcf.debug.PeerID" value="TCP:127.0.0.1:1534"/>
-    <stringAttribute key="org.eclipse.tcf.debug.ProjectName" value="Seekfree_TC264_Opensource_Library"/>
-    <booleanAttribute key="org.eclipse.tcf.debug.RunLocalAgent" value="false"/>
-    <booleanAttribute key="org.eclipse.tcf.debug.RunLocalServer" value="false"/>
-    <booleanAttribute key="org.eclipse.tcf.debug.UseLocalAgent" value="false"/>
-    <stringAttribute key="org.eclipse.tcf.debug.executable_name" value="${workspace_loc}/Seekfree_TC264_Opensource_Library/Debug/Seekfree_TC264_Opensource_Library.elf"/>
-    <stringAttribute key="sessionID" value="61f7102a-ec14-4c1f-b25d-42d310f3240a"/>
+    <stringAttribute key="selectedDevice" value=""/>
+    <stringAttribute key="workspaceFileName" value=".ads/winIDEAWorkspaces/Debug/ADS.xjrf"/>
 </launchConfiguration>

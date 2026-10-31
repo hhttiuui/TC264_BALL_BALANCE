@@ -30,6 +30,10 @@
 #include "gps_storage.h"
 #include "small_driver_uart_control.h"
 #include "ttop_rc_control.h"
+#include "liangan.h"
+
+extern float g_lg_pos_err;
+extern float g_lg_angle_out;
 
 // =========================
 // 菜单：扣扣飞车
@@ -63,6 +67,7 @@ typedef enum
     UI_PAGE_KKF_GPS_CIRCLE = 28,     // 界面：单点绕圈 GPS 调试
     UI_PAGE_KKF_GPS_STORAGE = 29,    // 界面：GPS 实时存点轨迹显示
     UI_PAGE_KKF_MOTOR_DUTY = 35,     // 界面：左右电机占空比直接调试
+    UI_PAGE_KKF_LG_DBG = 40,         // 界面：liangan 摄像头数据调试
 
     // 界面1_1_4 ~ 1_1_8：PID 参数（直接操作 s_pid_mode_cfg）
     UI_PAGE_KKF_PID_CASCADE = 5,
@@ -96,6 +101,7 @@ static volatile uint8 s_kkf_spch_item = 1u;
 
 static volatile int16 s_kkf_motor_duty = 0;
 static volatile uint8 s_kkf_motor_duty_enable = 0u;
+static volatile uint8 s_kkf_lg_edit = 0u;   /* 0=TGT, 1=ALPHA, 2=CENTER, 3=SWP1, 4=SWP2, 5=TIME, 6=MODE */
 #define KKF_MOTOR_DUTY_LONG_PRESS_STEP (100u)
 
 // MODE3 RC Yaw 配置页状态
@@ -440,10 +446,10 @@ static void kkf_main_draw(void)
     ips200_show_string(16 * 6, 7 * 15, funtion_ready_flag ? "RUN" : "STOP");
     ips200_show_string(16, 8 * 15, "MODE:");
     ips200_show_string(16 * 6, 8 * 15, (char *)kkf_mode_str(s_kkf_mode));
-    ips200_show_string(16, 9 * 15, "yaw:");
-    ips200_show_float(16 * 6, 9 * 15, show_yaw_deg, 8, 2);//g_yaw_target_deg，show_yaw_deg
-    ips200_show_string(16, 10 * 15, "t_yaw:");
-    ips200_show_float(16 * 6, 10 * 15, g_yaw_target_deg, 8, 2);//eight_count
+    ips200_show_string(16, 9 * 15, "ball:");
+    ips200_show_int(16 * 6, 9 * 15, (int32)g_liangan_ball_pos, 4);
+    ips200_show_string(16, 10 * 15, "t_bal:");
+    ips200_show_int(16 * 6, 10 * 15, (int32)g_liangan_target, 4);
     ips200_show_string(16, 11 * 15, "pitch:");
     ips200_show_float(16 * 6, 11 * 15, show_pitch_deg, 8, 2);
     ips200_show_string(16, 12 * 15, "roll:");
@@ -571,6 +577,7 @@ static void kkf_param_draw(void)
     ips200_show_string(16, 12 * 15, "MOTOR_PID");
     ips200_show_string(16, 13 * 15, "RC_YAW_CFG");
     ips200_show_string(16, 14 * 15, "MOTOR_DUTY");
+    ips200_show_string(16, 15 * 15, "LG_DBG");
 
     ips200_show_string(0, s_kkf_param_item * 15, "> ");
 
@@ -588,6 +595,74 @@ static void kkf_motor_duty_draw(void)
     ips200_show_string(16, 6 * 15, "K1/K3: +/-1");
     ips200_show_string(16, 7 * 15, "LONG: +/-100");
     ips200_show_string(16, 8 * 15, "K2: ON/OFF");
+    kkf_draw_signature_bottom();
+}
+
+static void kkf_lg_dbg_draw(void)
+{
+    ips200_show_string(0, 0 * 15, "KOU_KOU_FLY_CAR");
+    ips200_show_string(16, 1 * 15, "LG_DBG");
+    ips200_show_string(16, 2 * 15, "CH0:");
+    ips200_show_int(16 * 5, 2 * 15, (int32)uart_receiver.channel[0], 5);
+
+    ips200_show_string(16, 3 * 15, "TGT:");
+    ips200_show_int(16 * 6, 3 * 15, (int32)g_liangan_target, 5);
+    ips200_show_string(16, 4 * 15, "BALL:");
+    ips200_show_int(16 * 6, 4 * 15, (int32)g_liangan_ball_pos, 5);
+    ips200_show_string(16, 5 * 15, "F_POS:");
+    ips200_show_float(16 * 7, 5 * 15, g_liangan_ball_filt, 8, 1);
+    ips200_show_string(16, 6 * 15, "POS_ERR:");
+    ips200_show_float(16 * 7, 6 * 15, g_lg_pos_err, 8, 1);
+
+    ips200_show_string(16, 7 * 15, "SPD2:");
+    ips200_show_float(16 * 7, 7 * 15, g_liangan_speed_calc, 8, 1);
+    ips200_show_string(16, 8 * 15, "ANG_OUT:");
+    ips200_show_float(16 * 7, 8 * 15, g_lg_angle_out, 8, 1);
+
+    ips200_show_string(16, 9 * 15, "ALPHA:");
+    ips200_show_float(16 * 7, 9 * 15, g_liangan_alpha_pos, 5, 2);
+
+    ips200_show_string(16, 10 * 15, "CENTER:");
+    ips200_show_int(16 * 7, 10 * 15, (int32)(400 + g_liangan_center_offset), 5);
+
+    ips200_show_string(16, 11 * 15, "SWP_DN:");
+    ips200_show_int(16 * 7, 11 * 15, (int32)g_liangan_sweep_ofs1, 5);
+
+    ips200_show_string(16, 12 * 15, "SWP_UP:");
+    ips200_show_int(16 * 7, 12 * 15, (int32)g_liangan_sweep_ofs2, 5);
+
+    ips200_show_string(16, 13 * 15, "TIME:");
+    ips200_show_int(16 * 7, 13 * 15, (int32)g_liangan_sweep_time_ms, 5);
+
+    ips200_show_string(16, 14 * 15, "MODE:");
+    {
+        const char *ms;
+        if      (g_liangan_sweep_mode == 0u) ms = "CLOSED";
+        else if (g_liangan_sweep_mode == 1u) ms = " OPEN ";
+        else if (g_liangan_sweep_mode == 2u) ms = "RC_DIR";
+        else if (g_liangan_sweep_mode == 3u) ms = "RC_REC";
+        else                                 ms = "RC_PLY";
+        ips200_show_string(16 * 7, 14 * 15, ms);
+    }
+
+    ips200_show_string(16, 15 * 15, "SERVO:");
+    ips200_show_float(16 * 7, 15 * 15, ips_show_pid_out, 8, 1);
+
+    /* 编辑光标：0=TGT(3), 1=ALPHA(9), 2=CENTER(10), 3=SWP1(11), 4=SWP2(12), 5=TIME(13), 6=MODE(14) */
+    {
+        uint16 cur_row;
+        if      (s_kkf_lg_edit == 0u) cur_row = 3u;
+        else if (s_kkf_lg_edit == 1u) cur_row = 9u;
+        else if (s_kkf_lg_edit == 2u) cur_row = 10u;
+        else if (s_kkf_lg_edit == 3u) cur_row = 11u;
+        else if (s_kkf_lg_edit == 4u) cur_row = 12u;
+        else if (s_kkf_lg_edit == 5u) cur_row = 13u;
+        else                          cur_row = 14u;
+        ips200_show_string(0, cur_row * 15, ">");
+    }
+
+    ips200_show_string(16, 16 * 15, "K1/K3:+/- K2:field");
+
     kkf_draw_signature_bottom();
 }
 
@@ -1088,6 +1163,8 @@ static void kkf_eight_turn_draw(void)
     }
 
     volatile ttop_eight2_seg_t *prog = kkf_eight2_prog_ptr((ttop_eight2_prog_id_t)s_kkf_eight2_prog_id);
+    uint8 dec_places = (s_kkf_eight2_prog_id == TTOP_EIGHT2_PROG_EX1) ? 2u : 1u;
+    uint8 width      = (s_kkf_eight2_prog_id == TTOP_EIGHT2_PROG_EX1) ? 7u : 6u;
 
     for (i = 0u; i < (uint16)TTOP_EIGHT2_PROG_LEN; i++)
     {
@@ -1104,8 +1181,8 @@ static void kkf_eight_turn_draw(void)
             ips200_show_string(0, y, " ");
         }
 
-        ips200_show_float(16 * 1, y, prog[i].target_rel_deg, 6, 1);
-        ips200_show_float(16 * 6, y, prog[i].rate_dps, 6, 1);
+        ips200_show_float(16 * 1, y, prog[i].target_rel_deg, width, dec_places);
+        ips200_show_float(16 * 6, y, prog[i].rate_dps, width, dec_places);
     }
 
     kkf_draw_signature_bottom();
@@ -1224,6 +1301,7 @@ typedef enum
     KKF_PID_FIELD_AHRS_KP = 1u,
     KKF_PID_FIELD_YAW_KP,
     KKF_PID_FIELD_YAW_KI,
+    KKF_PID_FIELD_YAW_KD,
     KKF_PID_FIELD_ANGLE_KP,
     KKF_PID_FIELD_ANGLE_KI,
     KKF_PID_FIELD_ANGLE_KD,
@@ -1324,41 +1402,44 @@ static void kkf_pid_draw_for_mode(pid_mode_t mode)
     ips200_show_string(16, 4 * 15, "YAW_KI :");
     ips200_show_float(16 * 9, 4 * 15, cfg->yaw.ki, 5, 2);
 
-    ips200_show_string(16, 5 * 15, "ANG_KP :");
-    ips200_show_float(16 * 9, 5 * 15, cfg->angle.kp, 5, 2);
+    ips200_show_string(16, 5 * 15, "YAW_KD :");
+    ips200_show_float(16 * 9, 5 * 15, cfg->yaw.kd * 10000.0f, 5, 2);
+
+    ips200_show_string(16, 6 * 15, "ANG_KP :");
+    ips200_show_float(16 * 9, 6 * 15, cfg->angle.kp, 5, 2);
     
-    ips200_show_string(16, 6 * 15, "ANG_KI :");
-    ips200_show_int(16 * 9, 6 * 15, (int32)cfg->angle.ki, 6);
+    ips200_show_string(16, 7 * 15, "ANG_KI :");
+    ips200_show_int(16 * 9, 7 * 15, (int32)cfg->angle.ki, 6);
 
-    ips200_show_string(16, 7 * 15, "ANG_KD :");
-    ips200_show_float(16 * 9, 7 * 15, cfg->angle.kd, 5, 2);
+    ips200_show_string(16, 8 * 15, "ANG_KD :");
+    ips200_show_float(16 * 9, 8 * 15, cfg->angle.kd, 5, 2);
 
-    ips200_show_string(16, 8 * 15, "A_MX   :");
-    ips200_show_float(16 * 9, 8 * 15, fabsf(cfg->angle.out_max), 5, 2);
+    ips200_show_string(16, 9 * 15, "A_MX   :");
+    ips200_show_float(16 * 9, 9 * 15, fabsf(cfg->angle.out_max), 5, 2);
 
-    ips200_show_string(16, 9 * 15, "A_IMX  :");
-    ips200_show_float(16 * 9, 9 * 15, fabsf(cfg->angle.i_max), 5, 2);
+    ips200_show_string(16, 10 * 15, "A_IMX  :");
+    ips200_show_float(16 * 9, 10 * 15, fabsf(cfg->angle.i_max), 5, 2);
 
-    ips200_show_string(16, 10 * 15, "RATE_KP:");
-    ips200_show_float(16 * 9, 10 * 15, cfg->rate.kp, 5, 2);
+    ips200_show_string(16, 11 * 15, "RATE_KP:");
+    ips200_show_float(16 * 9, 11 * 15, cfg->rate.kp, 5, 2);
 
-    ips200_show_string(16, 11 * 15, "RATE_KI:");
-    ips200_show_float(16 * 9, 11 * 15, cfg->rate.ki, 5, 2);
+    ips200_show_string(16, 12 * 15, "RATE_KI:");
+    ips200_show_float(16 * 9, 12 * 15, cfg->rate.ki, 5, 2);
 
-    ips200_show_string(16, 12 * 15, "RATE_KD:");
-    ips200_show_float(16 * 9, 12 * 15, cfg->rate.kd, 5, 2);
+    ips200_show_string(16, 13 * 15, "RATE_KD:");
+    ips200_show_float(16 * 9, 13 * 15, cfg->rate.kd, 5, 2);
 
-    ips200_show_string(16, 13 * 15, "DAMP_K :");
-    ips200_show_float(16 * 9, 13 * 15, cfg->damp_k, 5, 2);
+    ips200_show_string(16, 14 * 15, "DAMP_K :");
+    ips200_show_float(16 * 9, 14 * 15, cfg->damp_k, 5, 2);
 
-    ips200_show_string(16, 14 * 15, "DAMP_MX:");
-    ips200_show_float(16 * 9, 14 * 15, cfg->damp_max, 5, 2);
+    ips200_show_string(16, 15 * 15, "DAMP_MX:");
+    ips200_show_float(16 * 9, 15 * 15, cfg->damp_max, 5, 2);
 
-    ips200_show_string(16, 15 * 15, "MOT_TGT:");
-    ips200_show_int(16 * 9, 15 * 15, cfg->motor_target_counts_5ms, 6);
+    ips200_show_string(16, 16 * 15, "MOT_TGT:");
+    ips200_show_int(16 * 9, 16 * 15, cfg->motor_target_counts_5ms, 6);
 
-    ips200_show_string(16, 16 * 15, "IMU_ALP:");
-    ips200_show_float(16 * 9, 16 * 15, cfg->imu_filter_alpha, 5, 3);
+    ips200_show_string(16, 17 * 15, "IMU_ALP:");
+    ips200_show_float(16 * 9, 17 * 15, cfg->imu_filter_alpha, 5, 3);
 
     // 光标：行号 = 字段序号 + 1（因为从第2行开始显示字段）
     ips200_show_string(0, (uint16)((1u + (uint16)s_kkf_pid_item) * 15u), cursor);
@@ -1386,6 +1467,11 @@ static void kkf_pid_adjust_value(pid_mode_t mode, kkf_pid_field_t field, int8 di
     {
         cfg->yaw.ki += (dir > 0) ? 0.01f : -0.01f;
         if (cfg->yaw.ki < 0.0f) cfg->yaw.ki = 0.0f;
+    }
+    else if (field == KKF_PID_FIELD_YAW_KD)
+    {
+        cfg->yaw.kd += (dir > 0) ? 0.0001f : -0.0001f;
+        if (cfg->yaw.kd < 0.0f) cfg->yaw.kd = 0.0f;
     }
     else if (field == KKF_PID_FIELD_ANGLE_KP)
     {
@@ -1744,6 +1830,10 @@ void Menu_StartAll(void)
 
     funtion_ready_flag = 1u;
     ahrs_yaw_zero_request_set();
+
+    /* [liangan] MODE3: START 时启动自动扫目标 */
+    if (funtion_kemu == 3u) liangan_auto_sweep_start();
+
     ttop_eight2_reset_now();
     eight_flag = 0u;
     eight_count = 0u;
@@ -1822,6 +1912,10 @@ void Menu_ResetAll(void)
     eight_flag = 0u;
     eight_count = 0u;
     funtion_ready_flag = 0u;
+
+    /* [liangan] RESET 时停止自动扫目标 */
+    liangan_auto_sweep_reset();
+
     roll_slope_speed_reset();
     ttop_kemu3_reset();
 
@@ -1976,6 +2070,10 @@ void User_Interface(void)//UI显示
         {
             kkf_motor_duty_draw();
         }
+        else if (s_ui_page == UI_PAGE_KKF_LG_DBG)
+        {
+            kkf_lg_dbg_draw();
+        }
         else if (s_ui_page == UI_PAGE_KKF_PID_CASCADE ||
              s_ui_page == UI_PAGE_KKF_PID_CASCADE2 ||
              s_ui_page == UI_PAGE_KKF_PID_CASCADE3 ||
@@ -2076,9 +2174,12 @@ void Menu_Select(void)
             // KM3 录制轨迹（slot2）：长按存储
             ok2 = (ttop_kemu3_get_record_count(2u) > 0u) ?
                 ttop_kemu3_record_save_to_flash(2u) : 1u;
+            // 球-梁 RC 录制数据 → Flash slot 2
+            uint8 ok_lg = (liangan_rc_record_get_count() > 0u) ?
+                liangan_rc_record_save_to_flash(2u) : 1u;
             
             // 轻量提示：显示 SAVE OK/FAIL
-            if (ok1 && ok2 && ok3 && ok4 && ok5)
+            if (ok1 && ok2 && ok3 && ok4 && ok5 && ok_lg)
             {
                 ips200_show_string(16 * 8, 0, "SAVE OK");
             }
@@ -2161,6 +2262,8 @@ void Menu_Select(void)
     uint8 spch_edit_page =
         (uint8)(s_ui_page == UI_PAGE_KKF_SPCH_DBG &&
                 (s_kkf_spch_state == KKF_SPCH_STATE_EDIT));
+    uint8 lg_dbg_page =
+        (uint8)(s_ui_page == UI_PAGE_KKF_LG_DBG);
     uint8 k1_long_evt = 0u;
     uint8 k3_long_evt = 0u;
 
@@ -2200,6 +2303,11 @@ void Menu_Select(void)
         k3_long_evt = Key_ReadLongPress(KEY_ID_3);
     }
     else if (motor_duty_page)
+    {
+        k1_long_evt = Key_ReadLongPress(KEY_ID_1);
+        k3_long_evt = Key_ReadLongPress(KEY_ID_3);
+    }
+    else if (lg_dbg_page)
     {
         k1_long_evt = Key_ReadLongPress(KEY_ID_1);
         k3_long_evt = Key_ReadLongPress(KEY_ID_3);
@@ -2465,16 +2573,16 @@ void Menu_Select(void)
         }
         else if (s_ui_page == UI_PAGE_KKF_PARAM)
         {
-            // 1:MODE_SEL 2:EIGHT_TURN 3:E8_PROG 4:PID_CHANGE 5:PID_MODE 6:CON_DBG 7:DYN_PID 8:KEY_DBG 9:SPCH_DBG 10:KEMU1_DBG 11:KEMU3_DBG 12:MOTOR_PID 13:RC_YAW_CFG 14:MOTOR_DUTY
+            // 1:MODE_SEL 2:EIGHT_TURN ... 14:MOTOR_DUTY 15:LG_DBG
             if (KEY3_PRES == key)
             {
                 if (s_kkf_param_item > 1u) s_kkf_param_item--;
-                else s_kkf_param_item = 14u;
+                else s_kkf_param_item = 15u;
                 ips200_clear();
             }
             else if (KEY1_PRES == key)
             {
-                if (s_kkf_param_item < 14u) s_kkf_param_item++;
+                if (s_kkf_param_item < 15u) s_kkf_param_item++;
                 else s_kkf_param_item = 1u;
                 ips200_clear();
             }
@@ -2575,6 +2683,11 @@ void Menu_Select(void)
                     s_ui_page = UI_PAGE_KKF_MOTOR_DUTY;
                     s_kkf_motor_duty_enable = 0u;
                     small_driver_set_duty(0, 0);
+                    ips200_clear();
+                }
+                else if (s_kkf_param_item == 15u)
+                {
+                    s_ui_page = UI_PAGE_KKF_LG_DBG;
                     ips200_clear();
                 }
                 else
@@ -2711,6 +2824,9 @@ void Menu_Select(void)
 
             uint16 idx = (uint16)s_kkf_eight_turn_item;
             volatile ttop_eight2_seg_t *prog = kkf_eight2_prog_ptr((ttop_eight2_prog_id_t)s_kkf_eight2_prog_id);
+            /* EX1 槽位用于小球开环角度控制，步进 0.01；其余槽位保持原有步进 */
+            float deg_step = (s_kkf_eight2_prog_id == TTOP_EIGHT2_PROG_EX1) ? 0.01f : 1.0f;
+            float dps_step = (s_kkf_eight2_prog_id == TTOP_EIGHT2_PROG_EX1) ? 0.01f : 0.1f;
 
             if (KEY4_PRES == key)
             {
@@ -2745,7 +2861,7 @@ void Menu_Select(void)
                     uint8 i;
                     for (i = 0u; i < KKF_EIGHT_TURN_LONG_PRESS_EXTRA_STEPS; i++)
                     {
-                        prog[idx].target_rel_deg -= 1.0f;
+                        prog[idx].target_rel_deg -= deg_step;
                     }
                     ips200_clear();
                 }
@@ -2754,23 +2870,22 @@ void Menu_Select(void)
                     uint8 i;
                     for (i = 0u; i < KKF_EIGHT_TURN_LONG_PRESS_EXTRA_STEPS; i++)
                     {
-                        prog[idx].target_rel_deg += 1.0f;
+                        prog[idx].target_rel_deg += deg_step;
                     }
                     ips200_clear();
                 }
                 else if (KEY1_PRES == key)
                 {
-                    prog[idx].target_rel_deg -= 1.0f;
+                    prog[idx].target_rel_deg -= deg_step;
                     ips200_clear();
                 }
                 else if (KEY3_PRES == key)
                 {
-                    prog[idx].target_rel_deg += 1.0f;
+                    prog[idx].target_rel_deg += deg_step;
                     ips200_clear();
                 }
                 else if (KEY2_PRES == key)
                 {
-                    // 保存（已直接写回表），进入下一步
                     s_kkf_eight_turn_state = KKF_EIGHT_TURN_EDIT_DPS;
                     ips200_clear();
                 }
@@ -2782,7 +2897,7 @@ void Menu_Select(void)
                     uint8 i;
                     for (i = 0u; i < KKF_EIGHT_TURN_LONG_PRESS_EXTRA_STEPS; i++)
                     {
-                        prog[idx].rate_dps -= 0.1f;
+                        prog[idx].rate_dps -= dps_step;
                     }
                     ips200_clear();
                 }
@@ -2791,23 +2906,22 @@ void Menu_Select(void)
                     uint8 i;
                     for (i = 0u; i < KKF_EIGHT_TURN_LONG_PRESS_EXTRA_STEPS; i++)
                     {
-                        prog[idx].rate_dps += 0.1f;
+                        prog[idx].rate_dps += dps_step;
                     }
                     ips200_clear();
                 }
                 else if (KEY1_PRES == key)
                 {
-                    prog[idx].rate_dps -= 0.1f;
+                    prog[idx].rate_dps -= dps_step;
                     ips200_clear();
                 }
                 else if (KEY3_PRES == key)
                 {
-                    prog[idx].rate_dps += 0.1f;
+                    prog[idx].rate_dps += dps_step;
                     ips200_clear();
                 }
                 else if (KEY2_PRES == key)
                 {
-                    // 保存（已直接写回表），回到选择态
                     s_kkf_eight_turn_state = KKF_EIGHT_TURN_SEL;
                     ips200_clear();
                 }
@@ -2874,6 +2988,66 @@ void Menu_Select(void)
             else if (KEY2_PRES == key)
             {
                 s_kkf_pid_mode_id = kkf_item_to_pid_mode(s_kkf_pid_mode_item);
+                s_ui_page = UI_PAGE_KKF_PARAM;
+                ips200_clear();
+            }
+        }
+        else if (s_ui_page == UI_PAGE_KKF_LG_DBG)
+        {
+            /* KEY2 切换编辑字段：TGT → ALPHA → CENTER → SWP1 → SWP2 → TIME → MODE */
+            if (KEY2_PRES == key)
+            {
+                s_kkf_lg_edit++;
+                if (s_kkf_lg_edit > 6u) s_kkf_lg_edit = 0u;
+                ips200_clear();
+            }
+            /* KEY1/KEY3 调整当前字段 */
+            else if (KEY1_PRES == key)
+            {
+                if (s_kkf_lg_edit == 0u && g_liangan_target < 800u) g_liangan_target++;
+                else if (s_kkf_lg_edit == 1u && g_liangan_alpha_pos < 0.99f) g_liangan_alpha_pos += 0.01f;
+                else if (s_kkf_lg_edit == 2u && g_liangan_center_offset < 200) { g_liangan_center_offset++; g_liangan_target = (uint16_t)(400 + g_liangan_center_offset); }
+                else if (s_kkf_lg_edit == 3u && g_liangan_sweep_ofs1 < 300) g_liangan_sweep_ofs1++;
+                else if (s_kkf_lg_edit == 4u && g_liangan_sweep_ofs2 < 300) g_liangan_sweep_ofs2++;
+                else if (s_kkf_lg_edit == 5u && g_liangan_sweep_time_ms < 60000u) g_liangan_sweep_time_ms += 100u;
+                else if (s_kkf_lg_edit == 6u) { g_liangan_sweep_mode++; if (g_liangan_sweep_mode > 4u) g_liangan_sweep_mode = 0u; }
+                ips200_clear();
+            }
+            else if (KEY3_PRES == key)
+            {
+                if (s_kkf_lg_edit == 0u && g_liangan_target > 0u) g_liangan_target--;
+                else if (s_kkf_lg_edit == 1u && g_liangan_alpha_pos > 0.00f) g_liangan_alpha_pos -= 0.01f;
+                else if (s_kkf_lg_edit == 2u && g_liangan_center_offset > -200) { g_liangan_center_offset--; g_liangan_target = (uint16_t)(400 + g_liangan_center_offset); }
+                else if (s_kkf_lg_edit == 3u && g_liangan_sweep_ofs1 > -300) g_liangan_sweep_ofs1--;
+                else if (s_kkf_lg_edit == 4u && g_liangan_sweep_ofs2 > -300) g_liangan_sweep_ofs2--;
+                else if (s_kkf_lg_edit == 5u && g_liangan_sweep_time_ms > 100u) g_liangan_sweep_time_ms -= 100u;
+                else if (s_kkf_lg_edit == 6u) { if (g_liangan_sweep_mode > 0u) g_liangan_sweep_mode--; else g_liangan_sweep_mode = 4u; }
+                ips200_clear();
+            }
+            /* 长按：MODE 字段不处理长按 */
+            else if (k1_long_evt && k1_now)
+            {
+                if (s_kkf_lg_edit == 0u) { if (g_liangan_target < 760u) g_liangan_target += 50u; else g_liangan_target = 800u; }
+                else if (s_kkf_lg_edit == 1u) { g_liangan_alpha_pos += 0.10f; if (g_liangan_alpha_pos > 0.99f) g_liangan_alpha_pos = 0.99f; }
+                else if (s_kkf_lg_edit == 2u) { g_liangan_center_offset += 10; if (g_liangan_center_offset > 200) g_liangan_center_offset = 200; g_liangan_target = (uint16_t)(400 + g_liangan_center_offset); }
+                else if (s_kkf_lg_edit == 3u) { g_liangan_sweep_ofs1 += 10; if (g_liangan_sweep_ofs1 > 300) g_liangan_sweep_ofs1 = 300; }
+                else if (s_kkf_lg_edit == 4u) { g_liangan_sweep_ofs2 += 10; if (g_liangan_sweep_ofs2 > 300) g_liangan_sweep_ofs2 = 300; }
+                else if (s_kkf_lg_edit == 5u) { g_liangan_sweep_time_ms += 1000u; if (g_liangan_sweep_time_ms > 60000u) g_liangan_sweep_time_ms = 60000u; }
+                ips200_clear();
+            }
+            else if (k3_long_evt && k3_now)
+            {
+                if (s_kkf_lg_edit == 0u) { if (g_liangan_target > 50u) g_liangan_target -= 50u; else g_liangan_target = 0u; }
+                else if (s_kkf_lg_edit == 1u) { g_liangan_alpha_pos -= 0.10f; if (g_liangan_alpha_pos < 0.00f) g_liangan_alpha_pos = 0.00f; }
+                else if (s_kkf_lg_edit == 2u) { g_liangan_center_offset -= 10; if (g_liangan_center_offset < -200) g_liangan_center_offset = -200; g_liangan_target = (uint16_t)(400 + g_liangan_center_offset); }
+                else if (s_kkf_lg_edit == 3u) { g_liangan_sweep_ofs1 -= 10; if (g_liangan_sweep_ofs1 < -300) g_liangan_sweep_ofs1 = -300; }
+                else if (s_kkf_lg_edit == 4u) { g_liangan_sweep_ofs2 -= 10; if (g_liangan_sweep_ofs2 < -300) g_liangan_sweep_ofs2 = -300; }
+                else if (s_kkf_lg_edit == 5u) { g_liangan_sweep_time_ms -= 1000u; if (g_liangan_sweep_time_ms < 100u) g_liangan_sweep_time_ms = 100u; }
+                ips200_clear();
+            }
+            /* KEY4 返回参数页 */
+            else if (KEY4_PRES == key)
+            {
                 s_ui_page = UI_PAGE_KKF_PARAM;
                 ips200_clear();
             }
@@ -3750,6 +3924,7 @@ void Menu_Select(void)
 
             if (KEY4_PRES == key)
             {
+                ttop_funtion_mode_once_apply();  // 退出时应用参数
                 s_ui_page = UI_PAGE_KKF_PARAM;
                 s_kkf_pid_state = KKF_PID_STATE_SEL;
                 s_kkf_pid_item = 1u;
