@@ -4,7 +4,7 @@
  *  Created on: 2026-04-05
  *      Author: hhttiuui
  *
- *  璧涗簨鍔熻兘锛氶仴鎺у櫒閫氶亾鎺у埗銆�
+ *  赛事功能：遥控器通道控制。
  *  - CH0 -> g_yaw_target_deg
  *  - CH1 -> motor_set_target_counts_per_5ms
  */
@@ -39,7 +39,7 @@ static uint16 s_rc_yaw_replay_tick_5ms = 0u;
 static uint8 s_rc_yaw_replay_active = 0u;
 
 #ifndef TTOP_RC_SPEED_SLEW_COUNTS_PER_5MS
-#define TTOP_RC_SPEED_SLEW_COUNTS_PER_5MS   (3.0f)  //1f锛氭煍鍜岋紝鍝嶅簲閫熷害鎱�  2~3f锛氶�備腑锛屽搷搴旈�熷害閫備腑  4~5f锛氬揩閫燂紝鍝嶅簲閫熷害蹇紝绋冲畾鎬у樊
+#define TTOP_RC_SPEED_SLEW_COUNTS_PER_5MS   (3.0f)  //1f：柔和，响应速度慢  2~3f：适中，响应速度适中  4~5f：快速，响应速度快，稳定性差
 #endif
 
 #ifndef TTOP_RC_LOW_SPEED_RUN_COUNTS_PER_5MS
@@ -126,7 +126,7 @@ static int16 ttop_rc_map_ch1_to_speed_counts(float ch1)
 
 void ttop_rc_control_init(void)
 {
-    // 鍒濆鍖栭粯璁ゅ弬鏁帮細鍚庣画鍙�氳繃 ttop_rc_control_set_config 瑕嗙洊銆�
+    // 初始化默认参数：后续可通过 ttop_rc_control_set_config 覆盖。
     s_rc_cfg.yaw.in_min = 200.0f;
     s_rc_cfg.yaw.in_center = 800.0f;
     s_rc_cfg.yaw.in_max = 1400.0f;
@@ -207,7 +207,7 @@ void ttop_rc_control_emergency_stop_now(void)
 
 void ttop_rc_control_task_5ms(void)
 {
-    // 閬ユ帶鍣ㄦ湭灏辩华鎴栧け鎺ф椂涓嶆洿鏂版帶鍒堕噺銆�
+    // 遥控器未就绪或失控时不更新控制量。
     if (uart_receiver.finsh_flag == 0u) return;
     if (uart_receiver.state == 0u)
     {

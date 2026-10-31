@@ -14,9 +14,9 @@
 
 
 // ============================ WiFi-SPI 连接参数（示例） ============================
-char wifi_ssid[] = "YOUR_SSID";//热点名称
-char wifi_pwd[]  = "YOUR_PASSWORD";      //密码
-char tcp_ip[]    = "192.168.137.1";  //远端 IP，和服务器 IP 对应
+char wifi_ssid[] = "YOUR_SSID";     //热点名称
+char wifi_pwd[]  = "YOUR_PASSWORD"; //密码
+char tcp_ip[]    = "192.168.137.1"; //远端 IP，和服务器 IP 对应
 char tcp_port[]  = "8086";          //远端端口，和服务器端口对应
 char local_port[] = "6666";         //本地端口，随便给，不要和远端端口冲突就行
 

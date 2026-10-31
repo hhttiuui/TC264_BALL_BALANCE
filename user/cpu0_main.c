@@ -13,7 +13,7 @@ uint32 count_imu;
 
 int core0_main(void)
 {
-    clock_init();                   // 鑾峰彇骞惰缃郴缁熸椂閽�
+    clock_init();                   // 获取并设置系统时钟
     debug_init();                   // 璋冭瘯妯″潡鍒濆鍖栵紙涓插彛/鏃ュ織绛夛級
     system_start();
     /* [liangan] 用摄像头 UART 初始化替代原 GPS 初始化 */
@@ -41,7 +41,7 @@ int core0_main(void)
         /* [liangan] 原 GPS 解析已注释 */
         //gnss_data_parse();
         //ips200_show_string(0, 0 * 15, "KOU_KOU_FLY_CAR");
-        //led_bzw_show_task_20ms_auto();// LED 鐘舵€佹樉绀� + 鏇存柊鏍囧織浣�
+        //led_bzw_show_task_20ms_auto();// LED 状态显示 + 更新标志位
 
         
     }
@@ -50,51 +50,38 @@ int core0_main(void)
 
 #pragma section all restore
 // ********************************************************
-//鐜板湪鐨勪换鍔¤Е鍙戯細濮挎€佽В绠�->2ms涓柇瑙﹀彂
-//               缂栫爜鍣�+鎸夐敭+pid+鎸夐敭鍒囨崲鍚庣殑鍒濆鍖� -> while涓�5ms绛夊緟瑙﹀彂
-
-/* 
-鐜板湪鐨勮皟鎺ф柟寮忥細
-
-
-
-
-鐢�1ms瀹氭椂鍣紝浠�5ms涓哄懆鏈燂紝鍒嗗埆瑙﹀彂锛�
-0ms ~ 1ms -> 缂栫爜鍣ㄦ洿鏂�
-1ms ~ 2ms -> 鎸夐敭
-2ms ~ 3ms -> 濮挎€佽В绠�
-3ms ~ 4ms -> pid璁＄畻
-4ms ~ 5ms -> 鐣欑┖
-鑿滃崟鎿嶄綔鏀惧湪涓诲惊鐜腑
-
-
-
-宸蹭娇鐢ㄥ紩鑴氾細
-鑸垫満 -> 33_9
-
-UART_2_TX -> P10_5锛圲ART2_TX_P10_5锛�
-UART_2_RX -> P10_6锛圲ART2_RX_P10_6锛�
-UART_3_TX -> P15_6锛堟敞鎰忥細瀹忓悕鍐欑殑鏄� SMALL_DRIVER_RX (UART3_TX_P15_6)锛�
-UART_3_RX -> P15_7锛堟敞鎰忥細瀹忓悕鍐欑殑鏄� SMALL_DRIVER_TX (UART3_RX_P15_7)锛�
-
-KEY1 -> P11_3
-KEY2 -> P11_2
-KEY3 -> P20_7
-
-LED1 -> P20_9
-LED2 -> P20_8
-LED3 -> P21_5
-LED4 -> P21_4
-
-缂栫爜鍣� A 鐩� / CH1 -> P33_7锛圱IM2_ENCODER_CH1_P33_7锛�
-缂栫爜鍣� B 鐩� / CH2 -> P33_6锛圱IM2_ENCODER_CH2_P33_6锛�
-
-
-鍑芥暟鑰楁椂锛�
-ttop_encoder_task_5ms();//缂栫爜鍣�-> 135.26us
-ttop_key_task_5ms();    //鎸夐敭-> 2.06us
-imu_task_handler_2ms(); //濮挎€佽В绠�-> 25.84us
-ttop_pid_task_5ms();    //pid璁＄畻-> 19.62us
-
-
-*/
+// 运行调度说明（以 user/isr.c 为准，旧注释已作废）
+//
+// core0_main() 的主循环只做三件事，全是非实时任务：
+//     Menu_Select()      菜单状态机
+//     User_Interface()   IPS200 刷新
+//     gnss_data_parse()  GNSS 解析（中断里也会调一次）
+//
+// 所有实时任务都在 user/isr.c 的 cc61_pit_ch0_isr 里，
+// 由 pit_init(CCU61_CH0, 1000) 以 1ms 触发，内部分频：
+//     1ms  -> imu_task_handler_2ms()            读 IMU + Mahony 解算（dt=0.001）
+//     2ms  -> pid_timer_handler_multirate_2ms() 内部再分 2/4/8ms 三层 PID
+//     5ms  -> Key_Sample()                      按键采样
+//     5ms  -> ttop_funtion_new()                按 funtion_kemu 分派模式任务
+//     5ms  -> ttop_encoder_task_5ms()           编码器 + 坡度补偿 + 电机速度环
+//     20ms -> gps_nav_task_100ms()              GNSS 导航（名字写 100ms，实际 20ms）
+//     事件 -> gnss_data_parse()                 gnss_flag 置位时
+//
+// 上电后约 2 秒（enable_count > 2000）才开始跑任务，给 IMU/GNSS 留稳定时间。
+// pit_init(CCU60_CH1, 2000) 那个 2ms 定时器虽然初始化了，但中断体是空的。
+//
+// 已使用引脚（以宏定义为准，不要以旧注释为准）：
+//   舵机        P33_9              (ATOM0_CH1, 300Hz)
+//   编码器      P33_7 / P33_6      (TIM2 正交)
+//   小驱动板    UART2, 460800      (TX 脚 P10_5 / RX 脚 P10_6，宏名与方向相反)
+//   摄像头      UART3, 460800      (原 GPS 接口，见 code/liangan.c)
+//   按键 KEY1~4 P13_0 / P13_3 / P13_1 / P13_2
+//   LED1~4      P20_9 / P20_8 / P21_5 / P21_4
+//   蜂鸣器      P33_10
+//
+// 测试脚（任务入口/出口各翻转一次，HIGH 宽度即任务耗时）：
+//   P21_2 <- ttop_encoder_task_5ms()            独占
+//   P22_1 <- imu_task_handler_2ms()             独占
+//   P22_2 <- pid_timer_handler_multirate_2ms() 与 ttop_funtion_new() 共用
+//   P21_3 / P22_0 / P22_3  已初始化但没有任何地方翻转
+// ********************************************************

@@ -30,10 +30,10 @@ void all_periph_init(void)
         gpio_init(LED3, GPO, GPIO_HIGH, GPO_PUSH_PULL);          // 初始化 LED3 引脚：默认高电平，推挽输出
         gpio_init(LED4, GPO, GPIO_HIGH, GPO_PUSH_PULL);         // 初始化 LED4 引脚：默认高电平，推挽输出
 
-//        gpio_init(KEY1, GPI, GPIO_HIGH, GPI_PULL_UP);           // 锟斤拷始锟斤拷 KEY1 锟斤拷锟斤拷 默锟较高碉拷平 锟斤拷锟斤拷锟斤拷锟斤拷
-//        gpio_init(KEY2, GPI, GPIO_HIGH, GPI_PULL_UP);           // 锟斤拷始锟斤拷 KEY2 锟斤拷锟斤拷 默锟较高碉拷平 锟斤拷锟斤拷锟斤拷锟斤拷
-//        gpio_init(KEY3, GPI, GPIO_HIGH, GPI_PULL_UP);           // 锟斤拷始锟斤拷 KEY3 锟斤拷锟斤拷 默锟较高碉拷平 锟斤拷锟斤拷锟斤拷锟斤拷
-//        gpio_init(KEY4, GPI, GPIO_HIGH, GPI_PULL_UP);           // 锟斤拷始锟斤拷 KEY4 锟斤拷锟斤拷 默锟较高碉拷平 锟斤拷锟斤拷锟斤拷锟斤拷
+//        gpio_init(KEY1, GPI, GPIO_HIGH, GPI_PULL_UP);           // 初始化 KEY1 输入 默认高电平 上拉输入
+//        gpio_init(KEY2, GPI, GPIO_HIGH, GPI_PULL_UP);           // 初始化 KEY2 输入 默认高电平 上拉输入
+//        gpio_init(KEY3, GPI, GPIO_HIGH, GPI_PULL_UP);           // 初始化 KEY3 输入 默认高电平 上拉输入
+//        gpio_init(KEY4, GPI, GPIO_HIGH, GPI_PULL_UP);           // 初始化 KEY4 输入 默认高电平 上拉输入
 
     // 4. IPS200 屏幕初始化
         ips200_set_dir(IPS200_PORTAIT);
@@ -77,7 +77,7 @@ void all_periph_init(void)
 //         if((key_low_counter[key_index] >= KEY_DEBOUNCE_SCAN_COUNT) && (0 == key_pressed_latch[key_index]))
 //         {
 //             key_pressed_latch[key_index] = 1;
-//             return 1;   // 锟斤拷锟斤拷锟饺讹拷锟斤拷锟斤拷锟截达拷锟斤拷一锟斤拷
+//             return 1;   // 返回 1：检测到一次按下
 //         }
 //     }
 //     else
